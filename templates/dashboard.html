@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{{ group_name }} · SplitMate</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}" />
+</head>
+<body class="page-dashboard" data-token="{{ token }}">
+  <div class="atmosphere soft" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="/">SplitMate</a>
+    <nav>
+      <a href="/">首頁</a>
+      <button type="button" id="btn-refresh" class="linkish">重新整理</button>
+    </nav>
+  </header>
+
+  <main class="dash">
+    <section class="dash-hero">
+      <p class="eyebrow">{% if is_demo %}Demo 群組{% else %}群組儀表板{% endif %}</p>
+      <h1 id="group-name">{{ group_name }}</h1>
+      <p class="lede" id="summary-line">載入中…</p>
+      {% if is_demo %}
+      <p class="note">編輯 PIN 預設為 <code>1234</code>（可用來標記已付）。</p>
+      {% endif %}
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <h2>淨欠款結算</h2>
+        <p>雙向債務抵消後，誰該付給誰</p>
+      </div>
+      <div id="settlement-list" class="stack"></div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <h2>帳單列表</h2>
+        <p>LINE 記帳後會即時出現在這裡</p>
+      </div>
+      <div id="bills-list" class="stack"></div>
+    </section>
+
+    <section class="panel pin-panel">
+      <div class="panel-head">
+        <h2>編輯 PIN</h2>
+        <p>標記已付需要 PIN（LINE 內付款人結帳則不需）</p>
+      </div>
+      <label class="field">
+        <span>PIN</span>
+        <input id="edit-pin" type="password" inputmode="numeric" maxlength="8" placeholder="例如 1234" />
+      </label>
+    </section>
+  </main>
+
+  <div id="toast" class="toast" hidden></div>
+  <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+</body>
+</html>

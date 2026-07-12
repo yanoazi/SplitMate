@@ -452,11 +452,3 @@ def atomic_create_bill(
             logger.exception("atomic_create_bill failed: %s", e)
             return None, "unexpected_error"
     return None, "max_retries_exceeded"
-
-
-# 舊名稱相容（過渡期）
-get_db_splitbill = get_db
-init_db_splitbill = init_db
-generate_content_hash_v284 = generate_content_hash
-atomic_create_bill_v284 = atomic_create_bill
-SplitGroup = ExpenseGroup

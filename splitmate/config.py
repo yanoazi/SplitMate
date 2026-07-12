@@ -12,9 +12,7 @@ def _normalize_db_url(url: str) -> str:
 
 class Config:
     DATABASE_URL = _normalize_db_url(
-        os.environ.get("DATABASE_URL_SPLITBILL")
-        or os.environ.get("DATABASE_URL")
-        or "sqlite:///./splitmate.db"
+        os.environ.get("DATABASE_URL") or "sqlite:///./splitmate.db"
     )
     LINE_CHANNEL_ACCESS_TOKEN = os.environ.get("LINE_CHANNEL_ACCESS_TOKEN", "")
     LINE_CHANNEL_SECRET = os.environ.get("LINE_CHANNEL_SECRET", "")

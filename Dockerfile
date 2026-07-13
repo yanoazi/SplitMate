@@ -16,4 +16,5 @@ ENV DEMO_MODE=1
 ENV PUBLIC_BASE_URL=http://localhost:7777
 
 EXPOSE 7777
-CMD gunicorn "app:app" --bind 0.0.0.0:${PORT} --workers 2 --timeout 120
+# Railway 會注入 $PORT；單 worker 較穩（免費／小方案記憶體較緊）
+CMD gunicorn "app:app" --bind 0.0.0.0:${PORT} --workers 1 --threads 4 --timeout 120

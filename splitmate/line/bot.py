@@ -114,6 +114,9 @@ def register_line_handlers(handler: WebhookHandler):
             )
             return
 
+        if not group_id or not sender_id:
+            return
+
         sender_name = ""
         try:
             profile = _api().get_group_member_profile(group_id, sender_id)
@@ -128,7 +131,7 @@ def register_line_handlers(handler: WebhookHandler):
                     db.commit()
 
                 # 只要有人在群裡發言指令，就綁定其 LINE ID
-                if sender_name and sender_id:
+                if sender_name:
                     get_or_create_member_by_line_id(
                         db,
                         line_user_id=sender_id,
@@ -139,14 +142,13 @@ def register_line_handlers(handler: WebhookHandler):
 
                 web_url, edit_pin = _web_url_for_line_group(db, group_id)
 
-                if re.match(ADD_BILL_PATTERN, text):
+                if m := re.match(ADD_BILL_PATTERN, text):
                     if not sender_name:
                         _api().reply_message(
                             reply_token,
                             TextSendMessage(text="無法獲取您的群組名稱，請稍後再試。"),
                         )
                         return
-                    m = re.match(ADD_BILL_PATTERN, text)
                     _handle_add_bill(
                         reply_token,
                         m,
@@ -157,11 +159,10 @@ def register_line_handlers(handler: WebhookHandler):
                         web_url,
                         mention_ids,
                     )
-                elif re.match(BILL_DETAILS_PATTERN, text):
-                    bill_id = int(re.match(BILL_DETAILS_PATTERN, text).group(1))
+                elif m := re.match(BILL_DETAILS_PATTERN, text):
+                    bill_id = int(m.group(1))
                     _handle_bill_details(reply_token, bill_id, group_id, db, web_url)
-                elif re.match(SETTLE_PAYMENT_PATTERN, text):
-                    m = re.match(SETTLE_PAYMENT_PATTERN, text)
+                elif m := re.match(SETTLE_PAYMENT_PATTERN, text):
                     _handle_settle(
                         reply_token,
                         int(m.group(1)),

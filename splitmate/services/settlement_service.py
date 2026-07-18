@@ -9,8 +9,10 @@ from models import Bill, BillParticipant
 from splitmate.services.split_engine import compute_net_edges
 
 
-def unpaid_participations(db: Session, group_id: str) -> List[BillParticipant]:
-    return (
+def unpaid_participations(
+    db: Session, group_id: str, bill_ids: List[int] | None = None
+) -> List[BillParticipant]:
+    q = (
         db.query(BillParticipant)
         .options(
             joinedload(BillParticipant.debtor_member_profile),
@@ -22,8 +24,12 @@ def unpaid_participations(db: Session, group_id: str) -> List[BillParticipant]:
             Bill.is_archived == False,  # noqa: E712
             BillParticipant.is_paid == False,  # noqa: E712
         )
-        .all()
     )
+    if bill_ids is not None:
+        if not bill_ids:
+            return []
+        q = q.filter(Bill.id.in_(bill_ids))
+    return q.all()
 
 
 def build_debt_matrix(participations: List[BillParticipant]) -> dict:
@@ -36,8 +42,11 @@ def build_debt_matrix(participations: List[BillParticipant]) -> dict:
     return matrix
 
 
-def group_settlement(db: Session, group_id: str) -> dict:
-    rows = unpaid_participations(db, group_id)
+def group_settlement(
+    db: Session, group_id: str, bill_ids: List[int] | None = None
+) -> dict:
+    rows = unpaid_participations(db, group_id, bill_ids=bill_ids)
+    selected_ids = sorted({p.bill_id for p in rows}) if bill_ids is not None else None
     if not rows:
         return {
             "cleared": True,
@@ -45,6 +54,8 @@ def group_settlement(db: Session, group_id: str) -> dict:
             "raw_debts": [],
             "total_outstanding": "0",
             "unpaid_count": 0,
+            "bill_ids": bill_ids or [],
+            "matched_bill_ids": selected_ids or [],
         }
 
     matrix = build_debt_matrix(rows)
@@ -67,6 +78,8 @@ def group_settlement(db: Session, group_id: str) -> dict:
         "raw_debts": raw,
         "total_outstanding": str(total),
         "unpaid_count": len(rows),
+        "bill_ids": bill_ids or [],
+        "matched_bill_ids": selected_ids or [],
     }
 
 

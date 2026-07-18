@@ -91,6 +91,26 @@ def api_settlement(token: str):
         return jsonify(data)
 
 
+@api_bp.post("/groups/<token>/settlement/batch")
+def api_settlement_batch(token: str):
+    """只針對勾選的帳單做正負相抵（不改資料，純計算）。"""
+    body = request.get_json(silent=True) or {}
+    raw_ids = body.get("bill_ids") or []
+    try:
+        bill_ids = [int(x) for x in raw_ids]
+    except (TypeError, ValueError):
+        return jsonify({"error": "bill_ids 格式錯誤"}), 400
+
+    with get_db() as db:
+        group, err = _group_or_404(db, token)
+        if err:
+            return err
+        data = settlement_service.group_settlement(
+            db, group.line_group_id, bill_ids=bill_ids
+        )
+        return jsonify(data)
+
+
 @api_bp.get("/groups/<token>/members")
 def api_members(token: str):
     with get_db() as db:
@@ -141,3 +161,47 @@ def api_settle(token: str, bill_id: int):
         if "settled_amount" in out:
             out["settled_amount"] = str(out["settled_amount"])
         return jsonify({"ok": True, "message": msg, "result": out})
+
+
+@api_bp.post("/groups/<token>/bills/settle-batch")
+def api_settle_batch(token: str):
+    """將勾選帳單的未付項目全部標記已付（需 PIN）。"""
+    body = request.get_json(silent=True) or {}
+    pin = body.get("edit_pin") or request.headers.get("X-Edit-Pin")
+    raw_ids = body.get("bill_ids") or []
+    try:
+        bill_ids = [int(x) for x in raw_ids]
+    except (TypeError, ValueError):
+        return jsonify({"error": "bill_ids 格式錯誤"}), 400
+
+    with get_db() as db:
+        group, err = _group_or_404(db, token)
+        if err:
+            return err
+        if not group_service.verify_edit_pin(group, pin):
+            return jsonify({"error": "編輯 PIN 錯誤"}), 403
+        ok, msg, meta = bill_service.settle_bills_fully(
+            db, group.line_group_id, bill_ids
+        )
+        if not ok:
+            return jsonify({"error": msg}), 400
+        out = dict(meta)
+        if "settled_amount" in out:
+            out["settled_amount"] = str(out["settled_amount"])
+        return jsonify({"ok": True, "message": msg, "result": out})
+
+
+@api_bp.delete("/groups/<token>/bills/<int:bill_id>")
+def api_delete_bill(token: str, bill_id: int):
+    body = request.get_json(silent=True) or {}
+    pin = body.get("edit_pin") or request.headers.get("X-Edit-Pin")
+    with get_db() as db:
+        group, err = _group_or_404(db, token)
+        if err:
+            return err
+        if not group_service.verify_edit_pin(group, pin):
+            return jsonify({"error": "編輯 PIN 錯誤"}), 403
+        ok, msg = bill_service.delete_bill(db, group.line_group_id, bill_id)
+        if not ok:
+            return jsonify({"error": msg}), 404
+        return jsonify({"ok": True, "message": msg})

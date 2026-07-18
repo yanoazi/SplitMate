@@ -35,13 +35,29 @@
   <section id="how" class="section">
     <h2>怎麼運作</h2>
     <ol class="steps">
-      <li><strong>LINE 寫入</strong> — 在群組輸入 <code>#新增支出 900 火鍋 @小美 @小王</code></li>
-      <li><strong>自動入帳</strong> — Bot 寫入同一套資料庫，並回傳網頁連結</li>
+      <li><strong>LINE 寫入</strong> — 在群組輸入 <code>#分帳 900 火鍋 @小美 @小王</code>（請用鍵盤 @ 點選）</li>
+      <li><strong>自動入帳</strong> — Bot 寫入同一套資料庫，並可回傳網頁連結</li>
       <li><strong>網頁讀取</strong> — 打開連結查看帳單列表與淨欠款結算</li>
     </ol>
     {% if not line_enabled %}
     <p class="note">目前伺服器為 Web-only 模式（尚未設定 LINE Token），仍可完整體驗 Demo 儀表板。</p>
     {% endif %}
+  </section>
+
+  <section id="commands" class="section">
+    <h2>LINE 指令速查</h2>
+    <p class="lede compact">在群組打 <code>#幫助</code> 可隨時再看一次。</p>
+    <ul class="cmd-list">
+      <li><code>#分帳 金額 說明 @成員…</code> — <strong>由付款人</strong>記一筆</li>
+      <li><code>#群組結算</code> — 未付帳正負相抵</li>
+      <li><code>#網頁</code> — 儀表板連結 <strong>與編輯 PIN</strong>（刪除／批次結清也用它）</li>
+      <li><code>#合併 舊名 @點選</code> — 把 ❓僅名字 綁到 LINE ID</li>
+      <li><code>#成員</code>、<code>#選單</code>、<code>#建立帳單</code></li>
+    </ul>
+    <p class="note">
+      <strong>PIN：</strong>LINE 群打 <code>#網頁</code>（Demo 為 <code>1234</code>）。
+      網頁可勾選多筆帳單相抵、刪除帳單；LINE 內 <code>#結帳</code> 不需 PIN。
+    </p>
   </section>
 
   <footer class="footer">

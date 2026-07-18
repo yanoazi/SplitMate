@@ -25,35 +25,66 @@
       <h1 id="group-name">{{ group_name }}</h1>
       <p class="lede" id="summary-line">載入中…</p>
       {% if is_demo %}
-      <p class="note">編輯 PIN 預設為 <code>1234</code>（可用來標記已付）。</p>
+      <p class="note">這是 Demo：編輯 PIN 預設 <code>1234</code>。真實 LINE 群請在群裡打 <code>#網頁</code> 取得 PIN。</p>
+      {% else %}
+      <p class="note">編輯 PIN：請回 LINE 群打 <code>#網頁</code> 查看。刪除帳單、標記已付、批次結清都需要 PIN。</p>
       {% endif %}
+    </section>
+
+    <section class="panel pin-panel">
+      <div class="panel-head">
+        <h2>編輯 PIN</h2>
+        <p>來源：LINE 群 <code>#網頁</code>{% if is_demo %}；Demo 為 <code>1234</code>{% endif %}。LINE 內 <code>#結帳</code> 不需 PIN。</p>
+      </div>
+      <label class="field">
+        <span>PIN</span>
+        <input id="edit-pin" type="password" inputmode="numeric" maxlength="8" placeholder="{% if is_demo %}1234{% else %}在 LINE 打 #網頁 取得{% endif %}" />
+      </label>
     </section>
 
     <section class="panel">
       <div class="panel-head">
-        <h2>淨欠款結算</h2>
-        <p>雙向債務抵消後，誰該付給誰</p>
+        <h2>全部未付 · 淨欠款</h2>
+        <p>群組內<strong>所有尚未結清</strong>帳目的正負相抵（等同 LINE <code>#群組結算</code>）</p>
       </div>
       <div id="settlement-list" class="stack"></div>
     </section>
 
     <section class="panel">
       <div class="panel-head">
+        <h2>勾選帳單 · 批次相抵</h2>
+        <p>勾選下方帳單後按「計算相抵」，只針對勾選的幾筆算誰收誰付。可再「全部標記已付」。</p>
+      </div>
+      <div class="batch-toolbar">
+        <button type="button" id="btn-select-unpaid" class="btn-soft">勾選全部未結清</button>
+        <button type="button" id="btn-clear-select" class="btn-soft">清除勾選</button>
+        <button type="button" id="btn-batch-calc" class="btn-soft primary-soft">計算相抵</button>
+        <button type="button" id="btn-batch-settle" class="btn-soft danger-soft">勾選全部標記已付</button>
+      </div>
+      <div id="batch-settlement-list" class="stack batch-result">
+        <p class="empty">尚未計算。請先勾選帳單。</p>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
         <h2>帳單列表</h2>
-        <p>LINE 記帳後會即時出現在這裡</p>
+        <p>在 LINE 由<strong>付款人</strong>用 <code>#分帳</code> 記帳。可勾選做批次相抵；刪除需 PIN。</p>
       </div>
       <div id="bills-list" class="stack"></div>
     </section>
 
-    <section class="panel pin-panel">
+    <section class="panel">
       <div class="panel-head">
-        <h2>編輯 PIN</h2>
-        <p>標記已付需要 PIN（LINE 內付款人結帳則不需）</p>
+        <h2>常用 LINE 指令</h2>
+        <p>完整列表在群裡打 <code>#幫助</code></p>
       </div>
-      <label class="field">
-        <span>PIN</span>
-        <input id="edit-pin" type="password" inputmode="numeric" maxlength="8" placeholder="例如 1234" />
-      </label>
+      <ul class="cmd-list compact">
+        <li><code>#分帳 …</code> — 由付款人記帳</li>
+        <li><code>#群組結算</code> — 全部未付正負相抵</li>
+        <li><code>#網頁</code> — 連結 + PIN</li>
+        <li><code>#合併 舊名 @點選</code> — 把 ❓僅名字 綁到 LINE ID</li>
+      </ul>
     </section>
   </main>
 

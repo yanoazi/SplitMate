@@ -204,6 +204,47 @@ def settle_participants(
     )
 
 
+def delete_bill(db: Session, group_id: str, bill_id: int) -> Tuple[bool, str]:
+    bill = get_bill_by_id(db, bill_id, group_id)
+    if not bill:
+        return False, f"找不到帳單 B-{bill_id}。"
+    db.delete(bill)
+    db.commit()
+    return True, f"已刪除 B-{bill_id} {bill.description}"
+
+
+def settle_bills_fully(
+    db: Session, group_id: str, bill_ids: List[int]
+) -> Tuple[bool, str, dict]:
+    """將指定帳單的所有未付參與者標記已付（並可封存）。"""
+    if not bill_ids:
+        return False, "請至少勾選一筆帳單。", {}
+    settled_bills = []
+    total = Decimal(0)
+    for bill_id in bill_ids:
+        bill = get_bill_by_id(db, bill_id, group_id)
+        if not bill or bill.is_archived:
+            continue
+        changed = False
+        for bp in bill.participants:
+            if not bp.is_paid:
+                bp.is_paid = True
+                bp.paid_at = datetime.now(timezone.utc)
+                total += bp.amount_owed
+                changed = True
+        if changed:
+            bill.is_archived = True
+            settled_bills.append(bill.id)
+    if not settled_bills:
+        return False, "勾選的帳單沒有可結清的未付項目。", {}
+    db.commit()
+    return (
+        True,
+        "ok",
+        {"settled_bill_ids": settled_bills, "settled_amount": total},
+    )
+
+
 def bill_to_dict(bill: Bill) -> dict:
     unpaid = [p for p in bill.participants if not p.is_paid]
     paid = [p for p in bill.participants if p.is_paid]

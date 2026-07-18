@@ -19,8 +19,6 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session, joinedload
 
 from models import (
-    Bill,
-    BillParticipant,
     SplitType,
     cleanup_old_duplicate_logs,
     generate_operation_hash,
@@ -33,14 +31,17 @@ from models import (
 )
 from splitmate.config import Config
 from splitmate.services import bill_service, settlement_service
-from splitmate.services.group_service import get_or_create_group_for_line
+from splitmate.services.group_service import (
+    get_or_create_group_for_line,
+    merge_member_to_line_id,
+)
 from splitmate.services.mentions import extract_mention_user_ids, parse_at_names
 
 logger = logging.getLogger(__name__)
 
 line_bp = Blueprint("line", __name__)
 
-ADD_BILL_PATTERN = r"^#新增支出\s+([\d\.]+)\s+(.+?)\s+((?:@\S+(?:\s+[\d\.]+)?\s*)+)$"
+ADD_BILL_PATTERN = r"^#分帳\s+([\d\.]+)\s+(.+?)\s+((?:@\S+(?:\s+[\d\.]+)?\s*)+)$"
 BILL_DETAILS_PATTERN = r"^#支出詳情\s+B-(\d+)$"
 SETTLE_PAYMENT_PATTERN = r"^#結帳\s+B-(\d+)\s+((?:@\S+\s*)+)$"
 HELP_PATTERN = r"^#幫助$"
@@ -50,10 +51,9 @@ GROUP_SETTLEMENT_PATTERN = r"^#群組結算$"
 GROUP_DEBTS_OVERVIEW_PATTERN = r"^#群組欠款$"
 GROUP_BILLS_OVERVIEW_PATTERN = r"^#群組帳單$"
 COMPLETE_BILLS_PATTERN = r"^#完整帳單$"
-DELETE_ALL_BILLS_PATTERN = r"^#刪除帳單(?:\s+確認)?$"
 WEB_LINK_PATTERN = r"^#網頁$"
-MY_ID_PATTERN = r"^#我的ID$"
 MEMBERS_PATTERN = r"^#成員$"
+MERGE_MEMBER_PATTERN = r"^#合併\s+(\S+)\s+@\S+"
 
 
 def _api() -> LineBotApi:
@@ -173,19 +173,17 @@ def register_line_handlers(handler: WebhookHandler):
                         web_url,
                         mention_ids,
                     )
-                elif re.match(MY_ID_PATTERN, text):
-                    _api().reply_message(
-                        reply_token,
-                        TextSendMessage(
-                            text=(
-                                f"你的顯示名稱：@{sender_name or '未知'}\n"
-                                f"你的 LINE userId：\n{sender_id}\n\n"
-                                "記帳時請用鍵盤的「@點選成員」，系統才能把帳單綁到正確的人。"
-                            )
-                        ),
-                    )
                 elif re.match(MEMBERS_PATTERN, text):
                     _handle_members(reply_token, group_id, db, web_url)
+                elif m := re.match(MERGE_MEMBER_PATTERN, text):
+                    _handle_merge_member(
+                        reply_token,
+                        group_id,
+                        m.group(1),
+                        mention_ids,
+                        db,
+                        web_url,
+                    )
                 elif re.match(HELP_PATTERN, text):
                     _send_help(reply_token, web_url)
                 elif re.match(FLEX_MENU_PATTERN, text):
@@ -197,9 +195,12 @@ def register_line_handlers(handler: WebhookHandler):
                         reply_token,
                         TextSendMessage(
                             text=(
-                                f"📊 本群組網頁儀表板：\n{web_url}\n\n"
+                                "📊 本群組網頁儀表板\n"
+                                f"{web_url}\n\n"
                                 f"🔐 編輯 PIN：{edit_pin}\n"
-                                "請妥善保管，勿任意轉貼。"
+                                "用途：在網頁標記已付／刪除帳單／批次結算時輸入。\n"
+                                "LINE 內用 #結帳 則不需要 PIN。\n"
+                                "請妥善保管，勿任意公開轉貼。"
                             )
                         ),
                     )
@@ -211,20 +212,6 @@ def register_line_handlers(handler: WebhookHandler):
                     COMPLETE_BILLS_PATTERN, text
                 ):
                     _handle_bills_short(reply_token, group_id, db, web_url)
-                elif re.match(DELETE_ALL_BILLS_PATTERN, text):
-                    if text.strip() != "#刪除帳單 確認":
-                        _api().reply_message(
-                            reply_token,
-                            TextSendMessage(
-                                text=(
-                                    "⚠️ 此操作會永久刪除本群組全部帳單。\n"
-                                    "若確定，請輸入：\n#刪除帳單 確認\n\n"
-                                    f"或改在網頁管理：{web_url}"
-                                )
-                            ),
-                        )
-                        return
-                    _handle_delete_all(reply_token, group_id, sender_id, db, web_url)
                 else:
                     logger.info("Unmatched command: %s", text)
         except SQLAlchemyError:
@@ -348,7 +335,12 @@ def _handle_members(reply_token, group_id, db, web_url):
     if not members:
         _api().reply_message(
             reply_token,
-            TextSendMessage(text="尚無成員紀錄。先用 #新增支出 並 @點選成員。" + _short_footer(web_url)),
+            TextSendMessage(
+                text=(
+                    "尚無成員紀錄。請由付款人用 #分帳 並 @點選成員。"
+                    + _short_footer(web_url)
+                )
+            ),
         )
         return
     lines = ["👥 本群組已記錄的成員"]
@@ -358,10 +350,37 @@ def _handle_members(reply_token, group_id, db, web_url):
         else:
             lines.append(f"❓ @{m.name}（僅有名字，尚未綁定 ID）")
     lines.append("")
-    lines.append("🔗 = 用 LINE @點選過，身份穩定")
-    lines.append("❓ = 只打字名字，改名可能對不到人")
+    lines.append("🔗 = 已綁定 LINE ID")
+    lines.append("❓ = 僅名字；之後可：#合併 顯示名 @點選本人")
     lines.append(_short_footer(web_url).strip())
     _api().reply_message(reply_token, TextSendMessage(text="\n".join(lines)))
+
+
+def _handle_merge_member(reply_token, group_id, old_name, mention_ids, db, web_url):
+    if not mention_ids:
+        _api().reply_message(
+            reply_token,
+            TextSendMessage(
+                text=(
+                    "合併失敗：請用鍵盤「@點選」目標成員（不要手打 @名字）。\n"
+                    f"範例：#合併 {old_name} @點選本人"
+                )
+            ),
+        )
+        return
+    # 取第一個被點選的 mention
+    display_name, line_user_id = next(iter(mention_ids.items()))
+    ok, msg = merge_member_to_line_id(
+        db,
+        group_id=group_id,
+        old_name=old_name,
+        line_user_id=line_user_id,
+        display_name=display_name,
+    )
+    prefix = "✅ " if ok else "❌ "
+    _api().reply_message(
+        reply_token, TextSendMessage(text=prefix + msg + _short_footer(web_url))
+    )
 
 
 def _handle_settlement_short(reply_token, group_id, db, web_url):
@@ -411,52 +430,47 @@ def _handle_bills_short(reply_token, group_id, db, web_url):
     _api().reply_message(reply_token, TextSendMessage(text="\n".join(lines)))
 
 
-def _handle_delete_all(reply_token, group_id, sender_id, db, web_url):
-    op = generate_operation_hash(sender_id, "delete_all_bills", group_id)
-    if is_duplicate_operation(db, op, group_id, sender_id, 5):
-        _api().reply_message(reply_token, TextSendMessage(text="⚠️ 重複刪除操作，請稍候。"))
-        return
-    log_operation(db, op, group_id, sender_id, "delete_all_bills")
-
-    bills = (
-        db.query(Bill)
-        .options(joinedload(Bill.participants))
-        .filter(Bill.group_id == group_id)
-        .all()
-    )
-    count = len(bills)
-    if count == 0:
-        _api().reply_message(reply_token, TextSendMessage(text="沒有可刪除的帳單。"))
-        return
-    try:
-        for b in bills:
-            db.query(BillParticipant).filter(BillParticipant.bill_id == b.id).delete()
-            db.delete(b)
-        db.commit()
-        _api().reply_message(
-            reply_token,
-            TextSendMessage(text=f"🗑️ 已刪除 {count} 筆帳單。" + _short_footer(web_url)),
-        )
-    except Exception:
-        db.rollback()
-        logger.exception("delete all failed")
-        _api().reply_message(reply_token, TextSendMessage(text="刪除失敗，請稍後再試。"))
-
-
 def _send_help(reply_token, web_url):
     text = (
-        "💸 SplitMate 指令\n"
+        "💸 SplitMate 指令一覽\n"
         "────────────\n"
-        "#新增支出 300 午餐 @小美 @小王\n"
-        "#新增支出 1000 聚餐 @小美 400 @小王 350\n"
-        "#結帳 B-1 @小美\n"
-        "#支出詳情 B-1\n"
-        "#群組結算｜#群組欠款｜#群組帳單\n"
-        "#成員｜#我的ID｜#網頁｜#選單\n"
-        "#刪除帳單 確認\n"
+        "【記帳｜必須由付款人發送】\n"
+        "⚠️ 誰先墊錢，就由「付款人」本人打 #分帳。\n"
+        "　系統會把「發言者」記成付款人。\n"
+        "#分帳 300 午餐 @小美 @小王\n"
+        "　→ 三人均攤（含付款人）\n"
+        "#分帳 1000 聚餐 @小美 400 @小王 350\n"
+        "　→ 分別金額；餘額算付款人自己\n"
+        "\n"
+        "【查帳／結算】\n"
+        "#群組結算 → 全部未付帳正負相抵，誰付給誰\n"
+        "#群組欠款 → 未付欠款摘要\n"
+        "#群組帳單（或 #完整帳單）→ 近期帳單列表\n"
+        "#支出詳情 B-1 → 單筆明細\n"
+        "#結帳 B-1 @小美 → 標記已付\n"
+        "　※ LINE 內只有「該筆付款人」能 #結帳\n"
+        "　※ 其他人請開網頁＋PIN 標記已付\n"
+        "\n"
+        "【成員／補綁 ID】\n"
+        "#成員 → 🔗已綁定／❓僅名字\n"
+        "#合併 小美 @點選小美\n"
+        "　（整句一次送出；@ 必須鍵盤點選）\n"
+        "　1) 當初沒綁到 ID → #成員 出現 ❓小美\n"
+        "　2) 進群後：#合併 小美 + @點選本人\n"
+        "　3) 舊帳轉到她的 LINE ID → 變 🔗\n"
+        "　※「小美」要和 ❓ 後面名字完全相同\n"
+        "\n"
+        "【網頁與 PIN】\n"
+        "#網頁 → 專屬連結 ＋ 編輯 PIN\n"
+        "　網頁可：全部結算、勾選多筆相抵、\n"
+        "　單人／批次標記已付、刪除帳單\n"
+        "　（以上需 PIN；LINE #結帳 不需）\n"
+        f"　{web_url}\n"
+        "\n"
+        "#選單 → 快捷按鈕\n"
+        "#建立帳單 → 記帳範例\n"
         "────────────\n"
-        "重要：請用鍵盤「@點選成員」才能綁定 LINE ID\n"
-        f"{web_url}"
+        "⚠️ @成員請用鍵盤點選，才能綁定 LINE ID。"
     )
     _api().reply_message(reply_token, TextSendMessage(text=text))
 
@@ -529,10 +543,11 @@ def _send_menu(reply_token, web_url):
 
 def _send_create_guide(reply_token):
     text = (
-        "📝 建立帳單\n"
+        "📝 建立帳單（必須由付款人發送）\n"
         "請用鍵盤「@」點選成員（不要手動打字）\n\n"
-        "均攤：\n#新增支出 300 午餐 @小美 @小王\n\n"
-        "分別：\n#新增支出 1000 聚餐 @小美 400 @小王 350\n\n"
-        "代墊：\n#新增支出 500 代付 @小美 300 @小王 200"
+        "均攤：\n#分帳 300 午餐 @小美 @小王\n\n"
+        "分別：\n#分帳 1000 聚餐 @小美 400 @小王 350\n\n"
+        "代墊：\n#分帳 500 代付 @小美 300 @小王 200\n\n"
+        "網頁／PIN／刪除帳單：打 #網頁"
     )
     _api().reply_message(reply_token, TextSendMessage(text=text))

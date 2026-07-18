@@ -10,9 +10,16 @@ def _normalize_db_url(url: str) -> str:
     return url
 
 
+def _default_sqlite() -> str:
+    # Railway / Docker 容器寫入 /tmp 較穩
+    if os.environ.get("RAILWAY_ENVIRONMENT") or os.path.exists("/.dockerenv"):
+        return "sqlite:////tmp/splitmate.db"
+    return "sqlite:///./splitmate.db"
+
+
 class Config:
     DATABASE_URL = _normalize_db_url(
-        os.environ.get("DATABASE_URL") or "sqlite:///./splitmate.db"
+        os.environ.get("DATABASE_URL") or _default_sqlite()
     )
     LINE_CHANNEL_ACCESS_TOKEN = os.environ.get("LINE_CHANNEL_ACCESS_TOKEN", "")
     LINE_CHANNEL_SECRET = os.environ.get("LINE_CHANNEL_SECRET", "")

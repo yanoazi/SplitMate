@@ -182,6 +182,9 @@ def init_engine(database_url: Optional[str] = None):
             from sqlalchemy.pool import StaticPool
 
             kwargs["poolclass"] = StaticPool
+    elif url.startswith("postgresql"):
+        # 避免 Railway 連錯 Postgres 時卡死數分鐘，導致 healthcheck 失敗
+        kwargs["connect_args"] = {"connect_timeout": 10}
     engine = create_engine(url, **kwargs)
     SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
     return engine

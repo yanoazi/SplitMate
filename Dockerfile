@@ -16,5 +16,5 @@ ENV DEMO_MODE=1
 ENV PUBLIC_BASE_URL=http://localhost:7777
 
 EXPOSE 7777
-# Railway 會注入 $PORT；單 worker 較穩（免費／小方案記憶體較緊）
-CMD gunicorn "app:app" --bind 0.0.0.0:${PORT} --workers 1 --threads 4 --timeout 120
+# 用 sh -c 確保 Railway 注入的 $PORT 會生效（否則 healthcheck 常失敗）
+CMD ["sh", "-c", "gunicorn \"app:app\" --bind 0.0.0.0:${PORT:-7777} --workers 1 --threads 4 --timeout 120"]

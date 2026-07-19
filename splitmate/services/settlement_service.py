@@ -6,7 +6,7 @@ from typing import List
 from sqlalchemy.orm import Session, joinedload
 
 from models import Bill, BillParticipant
-from splitmate.services.split_engine import compute_net_edges
+from splitmate.services.split_engine import compute_min_transfers, compute_net_edges
 
 
 def unpaid_participations(
@@ -59,7 +59,9 @@ def group_settlement(
         }
 
     matrix = build_debt_matrix(rows)
-    edges = compute_net_edges(matrix)
+    # 對外預設：最少轉帳次數；pairwise 保留供除錯／對照
+    min_edges = compute_min_transfers(matrix)
+    pairwise = compute_net_edges(matrix)
     raw = []
     for p in rows:
         raw.append(
@@ -73,8 +75,15 @@ def group_settlement(
         )
     total = sum((p.amount_owed for p in rows), Decimal(0))
     return {
-        "cleared": len(edges) == 0,
-        "edges": [{"from": e["from"], "to": e["to"], "amount": str(e["amount"])} for e in edges],
+        "cleared": len(min_edges) == 0,
+        "algorithm": "min_transfers",
+        "edges": [
+            {"from": e["from"], "to": e["to"], "amount": str(e["amount"])} for e in min_edges
+        ],
+        "pairwise_edges": [
+            {"from": e["from"], "to": e["to"], "amount": str(e["amount"])} for e in pairwise
+        ],
+        "transfer_count": len(min_edges),
         "raw_debts": raw,
         "total_outstanding": str(total),
         "unpaid_count": len(rows),

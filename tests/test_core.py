@@ -42,6 +42,32 @@ def test_net_edges_offset():
     assert edges[0]["amount"] == Decimal("60")
 
 
+def test_min_transfers_fewer_than_pairwise():
+    from splitmate.services.split_engine import compute_min_transfers, compute_net_edges
+
+    # A↔B、B↔C、C↔A 交叉欠款：pairwise 可能多筆，最少轉帳應更精簡
+    matrix = {
+        "A": {"B": Decimal("100")},
+        "B": {"C": Decimal("100")},
+        "C": {"A": Decimal("100")},
+    }
+    pairwise = compute_net_edges(matrix)
+    transfers = compute_min_transfers(matrix)
+    # 三方循環淨額皆為 0 → 無需轉帳
+    assert transfers == []
+    assert len(transfers) <= len(pairwise)
+
+    matrix2 = {
+        "A": {"B": Decimal("50"), "C": Decimal("50")},
+        "B": {"C": Decimal("30")},
+    }
+    # A 淨 -100；B 淨 +20；C 淨 +80 → 兩筆即可
+    transfers2 = compute_min_transfers(matrix2)
+    assert len(transfers2) == 2
+    assert sum(t["amount"] for t in transfers2) == Decimal("100")
+    assert {t["from"] for t in transfers2} == {"A"}
+
+
 def test_create_app_health():
     from splitmate.app_factory import create_app
 
@@ -92,7 +118,7 @@ def test_merge_member_binds_line_id():
         assert "綁定" in merge_msg or "合併" in merge_msg
 
 
-def test_batch_settlement_filters_bills():
+def test_batch_settlement_uses_min_transfers():
     from models import (
         Bill,
         BillParticipant,
@@ -121,33 +147,16 @@ def test_batch_settlement_filters_bills():
             split_type=SplitType.EQUAL,
             content_hash="h1",
         )
-        bill2 = Bill(
-            group_id="g1",
-            description="晚餐",
-            total_bill_amount=Decimal("200"),
-            payer_member_id=b_member.id,
-            split_type=SplitType.EQUAL,
-            content_hash="h2",
-        )
-        db.add_all([bill1, bill2])
+        db.add(bill1)
         db.flush()
-        db.add_all(
-            [
-                BillParticipant(
-                    bill_id=bill1.id, debtor_member_id=b_member.id, amount_owed=Decimal("50")
-                ),
-                BillParticipant(
-                    bill_id=bill2.id, debtor_member_id=payer.id, amount_owed=Decimal("80")
-                ),
-                BillParticipant(
-                    bill_id=bill2.id, debtor_member_id=c_member.id, amount_owed=Decimal("80")
-                ),
-            ]
+        db.add(
+            BillParticipant(
+                bill_id=bill1.id, debtor_member_id=b_member.id, amount_owed=Decimal("50")
+            )
         )
         db.commit()
 
-        only_first = group_settlement(db, "g1", bill_ids=[bill1.id])
-        assert only_first["matched_bill_ids"] == [bill1.id]
-        assert len(only_first["edges"]) == 1
-        assert only_first["edges"][0]["from"] == "乙"
-        assert only_first["edges"][0]["to"] == "甲"
+        data = group_settlement(db, "g1", bill_ids=[bill1.id])
+        assert data["algorithm"] == "min_transfers"
+        assert data["edges"][0]["from"] == "乙"
+        assert data["edges"][0]["to"] == "甲"

@@ -72,8 +72,20 @@ def parse_participant_input(
     return participants_to_charge, split_type, None, payer_share
 
 
+def compute_net_balances(debt_matrix: Dict[str, Dict[str, Decimal]]) -> Dict[str, Decimal]:
+    """每人淨額：正＝應收款，負＝應付款。"""
+    balances: Dict[str, Decimal] = {}
+    for debtor, creditors in debt_matrix.items():
+        for creditor, amount in creditors.items():
+            if amount == 0:
+                continue
+            balances[debtor] = balances.get(debtor, Decimal(0)) - amount
+            balances[creditor] = balances.get(creditor, Decimal(0)) + amount
+    return balances
+
+
 def compute_net_edges(debt_matrix: Dict[str, Dict[str, Decimal]]) -> List[dict]:
-    """由原始欠款矩陣計算雙向抵消後的淨欠款邊。"""
+    """雙向抵消後的 pairwise 淨欠款邊（非最少轉帳）。"""
     members = set()
     for debtor, creditors in debt_matrix.items():
         members.add(debtor)
@@ -92,3 +104,37 @@ def compute_net_edges(debt_matrix: Dict[str, Dict[str, Decimal]]) -> List[dict]:
                 edges.append({"from": b, "to": a, "amount": -net})
     edges.sort(key=lambda e: e["amount"], reverse=True)
     return edges
+
+
+def compute_min_transfers(debt_matrix: Dict[str, Dict[str, Decimal]]) -> List[dict]:
+    """最少轉帳次數：由淨額貪婪配對「該付的人 → 該收的人」。
+
+    在金額可任意分割的前提下，轉帳筆數上限為 max(債務人數, 債權人數)，
+    且為結清淨額所需的最少筆數之一。
+    """
+    balances = compute_net_balances(debt_matrix)
+    # 使用 list 以便就地更新剩餘額
+    debtors = [[n, -b] for n, b in balances.items() if b < 0]
+    creditors = [[n, b] for n, b in balances.items() if b > 0]
+    debtors.sort(key=lambda x: x[1], reverse=True)
+    creditors.sort(key=lambda x: x[1], reverse=True)
+
+    transfers: List[dict] = []
+    i = j = 0
+    while i < len(debtors) and j < len(creditors):
+        d_name, d_amt = debtors[i]
+        c_name, c_amt = creditors[j]
+        pay = min(d_amt, c_amt)
+        if pay > 0:
+            transfers.append({"from": d_name, "to": c_name, "amount": pay})
+        d_amt -= pay
+        c_amt -= pay
+        debtors[i][1] = d_amt
+        creditors[j][1] = c_amt
+        if d_amt == 0:
+            i += 1
+        if c_amt == 0:
+            j += 1
+
+    transfers.sort(key=lambda e: e["amount"], reverse=True)
+    return transfers

@@ -65,7 +65,7 @@ def merge_member_to_line_id(
         .first()
     )
     if not old:
-        return False, f"找不到名為 @{old_name} 的紀錄。可先 #登記 {old_name} 或查看 #成員。"
+        return False, f"找不到名為 @{old_name} 的紀錄。請先查看 #成員。"
 
     target = (
         db.query(GroupMember)

@@ -3,65 +3,102 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>SplitMate — LINE 記帳 · 網頁結算</title>
+  <title>SplitMate — 在 LINE 記帳，在網頁看清楚</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}" />
 </head>
 <body class="page-landing">
-  <div class="atmosphere" aria-hidden="true"></div>
-  <header class="topbar">
-    <a class="brand" href="/">SplitMate</a>
+  <div class="grain" aria-hidden="true"></div>
+
+  <header class="site-bar">
+    <a class="mark" href="/">SplitMate</a>
     <nav>
-      <a href="/demo">試用 Demo</a>
-      <a href="/health">Health</a>
+      <a href="/demo">Demo</a>
+      <a class="nav-cta" href="/demo">試用</a>
     </nav>
   </header>
 
-  <main class="hero">
-    <p class="eyebrow">給台灣 LINE 群組的分帳工具</p>
-    <h1>在 LINE 記帳<br />在網頁看清楚誰欠誰</h1>
-    <p class="lede">
-      聚餐當下用一句指令記帳，對帳時打開儀表板看淨欠款與歷史。
-      不強迫大家下載新 App。
-    </p>
-    <div class="cta-row">
-      <a class="btn primary" href="/demo">開啟 Demo 儀表板</a>
-      <a class="btn ghost" href="#how">了解流程</a>
-    </div>
+  <main>
+    <section class="hero-stage">
+      <p class="kicker reveal">Taiwan · LINE group ledger</p>
+      <h1 class="display reveal">
+        <span class="brand-line">SplitMate</span>
+        <span class="sub-line">在聊天裡記帳</span>
+        <span class="sub-line accent-line">在網頁裡結算</span>
+      </h1>
+      <p class="hero-copy reveal">
+        不是逼大家開網站的分帳 App。<br />
+        付款人在 LINE 打一句 <code>#分帳</code>，對帳時再打開專屬頁面。
+      </p>
+      <div class="hero-actions reveal">
+        <a class="btn-solid" href="/demo">開啟 Demo</a>
+        <a class="btn-line" href="#story">往下看故事</a>
+      </div>
+      <div class="hero-rule reveal" aria-hidden="true"></div>
+    </section>
+
+    <section id="story" class="chapter">
+      <div class="chapter-index reveal">01 / Write</div>
+      <h2 class="chapter-title reveal">記帳發生在群組裡</h2>
+      <p class="chapter-body reveal">
+        聚餐結束不用切 App。付款人傳送：
+      </p>
+      <pre class="code-slab reveal"><code>#分帳 900 火鍋 @小美 @小王</code></pre>
+      <p class="chapter-body reveal">
+        @ 後點選成員可綁 LINE ID；只打名字也能記，之後用 <code>#合併</code> 補綁。
+      </p>
+    </section>
+
+    <section class="chapter chapter-dark">
+      <div class="chapter-index reveal">02 / Read</div>
+      <h2 class="chapter-title reveal">結算發生在網頁上</h2>
+      <div class="feature-strip">
+        <article class="feature reveal">
+          <h3>最少轉帳</h3>
+          <p>把交叉欠款壓成最少幾筆「誰付給誰」。</p>
+        </article>
+        <article class="feature reveal">
+          <h3>勾選相抵</h3>
+          <p>只算你勾的那幾筆帳單，再批次標記已付。</p>
+        </article>
+        <article class="feature reveal">
+          <h3>PIN 編輯</h3>
+          <p>群裡打 <code>#網頁</code> 取得 PIN，才能刪除或結清。</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="chapter">
+      <div class="chapter-index reveal">03 / Commands</div>
+      <h2 class="chapter-title reveal">群組指令很短</h2>
+      <ul class="cmd-board">
+        <li class="reveal"><code>#分帳</code><span>付款人記一筆</span></li>
+        <li class="reveal"><code>#結算</code><span>最少轉帳結果</span></li>
+        <li class="reveal"><code>#欠款</code><span>未付摘要</span></li>
+        <li class="reveal"><code>#成員</code><span>🔗 / ❓</span></li>
+        <li class="reveal"><code>#合併</code><span>補綁 LINE ID</span></li>
+        <li class="reveal"><code>#網頁</code><span>連結 + PIN</span></li>
+      </ul>
+      <p class="chapter-note reveal">完整說明在群裡打 <code>#幫助</code>。</p>
+      {% if not line_enabled %}
+      <p class="chapter-note reveal">此伺服器目前為 Web-only（未設定 LINE Token），仍可完整體驗 Demo。</p>
+      {% endif %}
+    </section>
+
+    <section class="closing">
+      <p class="closing-brand reveal">SplitMate</p>
+      <a class="btn-solid reveal" href="/demo">現在就試 Demo</a>
+    </section>
   </main>
 
-  <section id="how" class="section">
-    <h2>怎麼運作</h2>
-    <ol class="steps">
-      <li><strong>LINE 寫入</strong> — 在群組輸入 <code>#分帳 900 火鍋 @小美 @小王</code>（請用鍵盤 @ 點選）</li>
-      <li><strong>自動入帳</strong> — Bot 寫入同一套資料庫，並可回傳網頁連結</li>
-      <li><strong>網頁讀取</strong> — 打開連結查看帳單列表與淨欠款結算</li>
-    </ol>
-    {% if not line_enabled %}
-    <p class="note">目前伺服器為 Web-only 模式（尚未設定 LINE Token），仍可完整體驗 Demo 儀表板。</p>
-    {% endif %}
-  </section>
-
-  <section id="commands" class="section">
-    <h2>LINE 指令速查</h2>
-    <p class="lede compact">在群組打 <code>#幫助</code> 可隨時再看一次。</p>
-    <ul class="cmd-list">
-      <li><code>#分帳 金額 說明 @成員…</code> — <strong>由付款人</strong>記一筆</li>
-      <li><code>#群組結算</code> — 未付帳正負相抵</li>
-      <li><code>#網頁</code> — 儀表板連結 <strong>與編輯 PIN</strong>（刪除／批次結清也用它）</li>
-      <li><code>#合併 舊名 @點選</code> — 把 ❓僅名字 綁到 LINE ID</li>
-      <li><code>#成員</code>、<code>#選單</code>、<code>#建立帳單</code></li>
-    </ul>
-    <p class="note">
-      <strong>PIN：</strong>LINE 群打 <code>#網頁</code>（Demo 為 <code>1234</code>）。
-      網頁可勾選多筆帳單相抵、刪除帳單；LINE 內 <code>#結帳</code> 不需 PIN。
-    </p>
-  </section>
-
-  <footer class="footer">
-    <span>SplitMate · open source side project</span>
+  <footer class="site-foot">
+    <span>open source · LINE write / Web read</span>
   </footer>
+
+  <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.7/dist/gsap.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.7/dist/ScrollTrigger.min.js"></script>
+  <script src="{{ url_for('static', filename='js/landing.js') }}"></script>
 </body>
 </html>

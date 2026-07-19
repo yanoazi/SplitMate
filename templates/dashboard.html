@@ -6,89 +6,61 @@
   <title>{{ group_name }} · SplitMate</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}" />
 </head>
 <body class="page-dashboard" data-token="{{ token }}">
-  <div class="atmosphere soft" aria-hidden="true"></div>
-  <header class="topbar">
-    <a class="brand" href="/">SplitMate</a>
+  <div class="grain" aria-hidden="true"></div>
+
+  <header class="site-bar">
+    <a class="mark" href="/">SplitMate</a>
     <nav>
       <a href="/">首頁</a>
       <button type="button" id="btn-refresh" class="linkish">重新整理</button>
     </nav>
   </header>
 
-  <main class="dash">
-    <section class="dash-hero">
-      <p class="eyebrow">{% if is_demo %}Demo 群組{% else %}群組儀表板{% endif %}</p>
+  <main class="dash-shell">
+    <header class="dash-head">
+      <p class="kicker">{% if is_demo %}Demo{% else %}Group ledger{% endif %}</p>
       <h1 id="group-name">{{ group_name }}</h1>
-      <p class="lede" id="summary-line">載入中…</p>
-      {% if is_demo %}
-      <p class="note">這是 Demo：編輯 PIN 預設 <code>1234</code>。真實 LINE 群請在群裡打 <code>#網頁</code> 取得 PIN。</p>
-      {% else %}
-      <p class="note">編輯 PIN：請回 LINE 群打 <code>#網頁</code> 查看。刪除帳單、標記已付、批次結清都需要 PIN。</p>
-      {% endif %}
-    </section>
-
-    <section class="panel pin-panel">
-      <div class="panel-head">
-        <h2>編輯 PIN</h2>
-        <p>來源：LINE 群 <code>#網頁</code>{% if is_demo %}；Demo 為 <code>1234</code>{% endif %}。LINE 內 <code>#結帳</code> 不需 PIN。</p>
+      <p id="summary-line" class="dash-summary">載入中…</p>
+      <div class="pin-row">
+        <label for="edit-pin">PIN</label>
+        <input id="edit-pin" type="password" inputmode="numeric" maxlength="4" autocomplete="one-time-code" placeholder="{% if is_demo %}1234{% else %}四碼{% endif %}" />
+        <span class="pin-hint">{% if is_demo %}Demo 預設 1234{% else %}LINE 打 #網頁 取得{% endif %}</span>
       </div>
-      <label class="field">
-        <span>PIN</span>
-        <input id="edit-pin" type="password" inputmode="numeric" maxlength="8" placeholder="{% if is_demo %}1234{% else %}在 LINE 打 #網頁 取得{% endif %}" />
-      </label>
-    </section>
+    </header>
 
-    <section class="panel">
-      <div class="panel-head">
-        <h2>全部未付 · 淨欠款</h2>
-        <p>群組內<strong>所有尚未結清</strong>帳目的正負相抵（等同 LINE <code>#群組結算</code>）</p>
+    <section class="dash-block">
+      <div class="block-head">
+        <h2>最少轉帳結算</h2>
+        <p>全部未付帳目壓成最少筆數的「誰付給誰」（等同 <code>#結算</code>）</p>
       </div>
       <div id="settlement-list" class="stack"></div>
     </section>
 
-    <section class="panel">
-      <div class="panel-head">
-        <h2>勾選帳單 · 批次相抵</h2>
-        <p>勾選下方帳單後按「計算相抵」，只針對勾選的幾筆算誰收誰付。可再「全部標記已付」。</p>
+    <section class="dash-block">
+      <div class="block-head">
+        <h2>帳單</h2>
+        <p>勾選後可計算相抵或批次標記已付；刪除需 PIN。記帳請在 LINE 由付款人 <code>#分帳</code>。</p>
       </div>
       <div class="batch-toolbar">
-        <button type="button" id="btn-select-unpaid" class="btn-soft">勾選全部未結清</button>
-        <button type="button" id="btn-clear-select" class="btn-soft">清除勾選</button>
-        <button type="button" id="btn-batch-calc" class="btn-soft primary-soft">計算相抵</button>
-        <button type="button" id="btn-batch-settle" class="btn-soft danger-soft">勾選全部標記已付</button>
+        <button type="button" id="btn-select-unpaid" class="chip">勾選未結清</button>
+        <button type="button" id="btn-clear-select" class="chip">清除</button>
+        <button type="button" id="btn-batch-calc" class="chip chip-accent">計算相抵</button>
+        <button type="button" id="btn-batch-settle" class="chip chip-warn">全部標記已付</button>
       </div>
-      <div id="batch-settlement-list" class="stack batch-result">
-        <p class="empty">尚未計算。請先勾選帳單。</p>
+      <div id="batch-settlement-list" class="batch-panel stack">
+        <p class="empty">勾選帳單後按「計算相抵」。</p>
       </div>
-    </section>
-
-    <section class="panel">
-      <div class="panel-head">
-        <h2>帳單列表</h2>
-        <p>在 LINE 由<strong>付款人</strong>用 <code>#分帳</code> 記帳。可勾選做批次相抵；刪除需 PIN。</p>
-      </div>
-      <div id="bills-list" class="stack"></div>
-    </section>
-
-    <section class="panel">
-      <div class="panel-head">
-        <h2>常用 LINE 指令</h2>
-        <p>完整列表在群裡打 <code>#幫助</code></p>
-      </div>
-      <ul class="cmd-list compact">
-        <li><code>#分帳 …</code> — 由付款人記帳</li>
-        <li><code>#群組結算</code> — 全部未付正負相抵</li>
-        <li><code>#網頁</code> — 連結 + PIN</li>
-        <li><code>#合併 舊名 @點選</code> — 把 ❓僅名字 綁到 LINE ID</li>
-      </ul>
+      <div id="bills-list" class="stack bills-stack"></div>
     </section>
   </main>
 
   <div id="toast" class="toast" hidden></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.7/dist/gsap.min.js"></script>
   <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
 </body>
 </html>
